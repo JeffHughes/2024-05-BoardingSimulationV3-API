@@ -12,11 +12,11 @@ namespace BoardingSimulationV3.Calculations
         private void findSeatsFor(Family family, List<int> immediateSeatingPassengerIDs, Config config)
         {
             var targetRow = getTargetRowFromOverheadBin(family.OverheadBin, config);
-            var minRow = targetRow == 1 ? 1 : getMinimumUnblockedRow(family.OverheadBin);
+            var minRow = targetRow == 0 ? 0 : getMinimumUnblockedRow(family.OverheadBin);
 
             var familySeats = findSeatsForFamily(family, config, targetRow, minRow);
             var familyMembers = family.FamilyMembers;
- 
+
             // TODO: give non-immediately seating passengers the inner seats
             for (int i = 0; i < familySeats.Count; i++)
             {
@@ -26,32 +26,81 @@ namespace BoardingSimulationV3.Calculations
 
                 familyMembers[i].Row = rowAndSeat.row;
                 familyMembers[i].SeatLetter = rowAndSeat.seatLetter;
-            } 
+            }
         }
 
         private List<int> findSeatsForFamily(Family family, Config config, int targetRow, int minRow)
         {
             var foundSeats = new List<int>();
-            var seatPrefs = GetSeatPreferences(family.FamilyMembers.Count,   config.PassengerRows);
+            var seatPrefs = GetSeatPreferences(family.FamilyMembers.Count, config.PassengerRows);
 
-            Func<int, int> seatAdjustmentForTargetRow = row => row + targetRow * 6; //todo: + or - 1 ??
+            Console.WriteLine($"Family {family.FamilyID} has {family.FamilyMembers.Count} member(s) and {(family.FamilyMembers.Any(m => m.Age > 0 && m.Age < 6) ? "small children" : "no small children")}");
+            Console.WriteLine("target row = " + targetRow);
+
+            // log all seat preferences to console, break at config.PassengerRows
+            foreach (var seatSet in seatPrefs.Take(20))
+            {
+                foreach (var seat in seatSet)
+                {
+                    Console.Write(seat + " ");
+                }
+                Console.WriteLine();
+            }
+
+            Func<int, int> seatAdjustmentForTargetRow = seat => seat + ((targetRow) * config.SeatsPerPassengerRow); //todo: + or - 1 ??
+
+            var min = seatAdjustmentForTargetRow(minRow);
+            var max = config.PassengerRows * config.SeatsPerPassengerRow;
 
             foreach (var seatSet in seatPrefs)
             {
                 var allSeatsAvailable = true;
                 foreach (var seat in seatSet.Select(seatAdjustmentForTargetRow))
-                    if (seat < seatAdjustmentForTargetRow(minRow) || seat >= seatAdjustmentForTargetRow(config.PassengerRows) + 6 || seats[seat])
+                {
+                    if (seat >= 138)
+                        Console.Write($"Checking seat {seat} for family {family.FamilyID}");
+                    if (seat >= min && seat <= max && seat < seats.Length && !seats[seat])
+                    {
+                        if (seat >= 138)
+                            Console.WriteLine(" is available");
+                    }
+                    else
                     {
                         allSeatsAvailable = false;
+                        if (seat >= 138)
+                            Console.WriteLine(" is not available, moving to next seat set");
                         break;
                     }
+                }
 
-                if (allSeatsAvailable) return seatSet.Select(seatAdjustmentForTargetRow).ToList();
+                if (allSeatsAvailable)
+                {
+                    Console.WriteLine($"Found seats for family {family.FamilyID}");
+                    return seatSet.Select(seatAdjustmentForTargetRow).ToList();
+                }
             }
-             
+
+            //if (foundSeats.Count == 0) //TODO: we could walk back more slowly than jumping to 0
+            //    return findSeatsForFamily(family, config, 0, 0);
+
+            // if that still doesn't work, try to find seats for smaller groups;
+            foreach (var familyMember in family.FamilyMembers)
+            {
+                if (familyMember.Age > 0 && familyMember.Age < 6)
+                {
+                    // todo: we need to find a seat for this small child w a parent 
+                    // very difficult to get to this state, but it's possible
+                }
+
+                var smallFamily = new Family { FamilyMembers = new List<FamilyPassenger> { familyMember }, FamilyID = family.FamilyID };
+                var smallFamilySeats = findSeatsForFamily(smallFamily, config, 0, 0);
+                foundSeats.AddRange(smallFamilySeats);
+            }
+
             return foundSeats;
         }
 
+        //TODO: Memoize this
         private List<List<int>> GetSeatPreferences(int familyMembersCount, int passengerRowCount)
         {
             var seatsForFamilyCount = PreferredSeats(familyMembersCount);
@@ -102,7 +151,7 @@ namespace BoardingSimulationV3.Calculations
 
             var counter = 1;
 
-            while (highestRow <= passengerRowCount + 6 + 2 || lowestRow > -passengerRowCount - 1)
+            while (highestRow <= passengerRowCount || lowestRow >= -passengerRowCount)
             {
                 foreach (var order in orderOfPref)
                 {
@@ -145,7 +194,7 @@ namespace BoardingSimulationV3.Calculations
 
         private int getTargetRowFromOverheadBin(int familyOverheadBin, Config config)
         {
-            if (familyOverheadBin < 1) return 1;
+            if (familyOverheadBin < 1) return 0;
 
             /*
             1 = 23
@@ -180,21 +229,21 @@ namespace BoardingSimulationV3.Calculations
             return (row, seatLetter);
         }
 
-        private   void AddPrefSeatsInHigherNumberedRows(List<List<int>> result, List<List<int>> seats, int startRow, int endRow)
+        private void AddPrefSeatsInHigherNumberedRows(List<List<int>> result, List<List<int>> seats, int startRow, int endRow)
         {
             for (var i = startRow - 1; i < endRow; i++)
                 seats.ForEach(row => result.Add(row.Select(x => x + i * 6).ToList()));
 
         }
 
-        private   void AddPrefSeatsInLowerNumberedRows(List<List<int>> result, List<List<int>> seats, int startRow, int endRow)
+        private void AddPrefSeatsInLowerNumberedRows(List<List<int>> result, List<List<int>> seats, int startRow, int endRow)
         {
             for (var i = startRow; i > endRow - 1; i--)
                 seats.ForEach(row => result.Add(row.Select(x => x + i * 6).ToList()));
         }
 
 
-        private   List<List<List<int>>> PreferredSeats(int groupSize)
+        private List<List<List<int>>> PreferredSeats(int groupSize)
         {
             switch (groupSize)
             {
@@ -213,48 +262,48 @@ namespace BoardingSimulationV3.Calculations
             }
         }
 
-        static Random random = new Random();
-        private   List<List<List<int>>> PreferredSeatsSingles()
+        Random random = new Random();
+        private List<List<List<int>>> PreferredSeatsSingles()
         {
             // Singles Preferred seating window priority port:
-            var AFCD = LettersToSeats("A,F,C,D"); // [[1], [6], [3], [4]]
+            var AFCD = LettersToSeats("A,F,C,D");
 
             // Singles Preferred seating window priority starboard:
-            var FADC = LettersToSeats("F,A,D,C"); // [[6], [4], [3], [1]];
+            var FADC = LettersToSeats("F,A,D,C");
 
             // Singles Preferred seating isle then window port:
-            var CDAF = LettersToSeats("C,D,A,F"); // [[4], [6], [1], [3]];
+            var CDAF = LettersToSeats("C,D,A,F");
 
             // Singles Preferred seating isle then window starboard:
-            var DCFA = LettersToSeats("D,C,F,A"); // [[3], [1], [6], [4]];
+            var DCFA = LettersToSeats("D,C,F,A");
 
             // Singles Secondary Preference seating window priority starboard:
-            var BE = LettersToSeats("B,E"); // [[5], [2]];
+            var BE = LettersToSeats("B,E");
 
             // Singles Secondary Preference seating isle then window port:
-            var EB = LettersToSeats("E,B"); // [[2], [5]];
+            var EB = LettersToSeats("E,B");
 
-            var wilma = random.NextDouble();
-            var portStarbord = random.NextDouble();
-            if (wilma < 0.8)
-            {
-                if (portStarbord < 0.3)
-                    return [AFCD, EB];  // Port
+            //var wilma = random.NextDouble();
+            //var portStarbord = random.NextDouble();
+            //if (wilma < 0.8)
+            //{
+            //    if (portStarbord < 0.3)
+            return [AFCD, EB];  // Port
 
-                return [FADC, BE];  // Starboard
-            }
-            else
-            {
-                if (portStarbord < 0.7)
-                    return [CDAF, BE];  // Port 
+            //    return [FADC, BE];  // Starboard
+            //}
+            //else
+            //{
+            //    if (portStarbord < 0.7)
+            //        return [CDAF, BE];  // Port 
 
-                return [DCFA, BE];  // Starboard
-            }
+            //    return [DCFA, BE];  // Starboard
+            //}
 
 
         }
 
-        private   List<List<List<int>>> PreferredSeatsPairs()
+        private List<List<List<int>>> PreferredSeatsPairs()
         {
             var ABBCDEEF = LettersToSeats("AB,EF,BC,DE");
             var BCCDEEFA = LettersToSeats("FE,BA,DE,CB");
@@ -263,53 +312,52 @@ namespace BoardingSimulationV3.Calculations
 
             // 60% of the time, return port
             // 40% of the time, return aft
-            var random = new Random().NextDouble();
-            if (random < 0.6)
-            {
+
+            //if (random.NextDouble() < 0.6)
+            //{
                 return [ABBCDEEF, ABBCDEEF];  // Port
-            }
-            else
-            {
-                return [BCCDEEFA, ABBCDEEF];  // Starboard
-            }
+            //}
+            //else
+            //{
+            //    return [BCCDEEFA, ABBCDEEF];  // Starboard
+            //}
         }
 
-        private   List<List<List<int>>> PreferredSeats3()
+        private List<List<List<int>>> PreferredSeats3()
         {
             var ABCDEF = LettersToSeats("ABC,DEF");
             var DEFABC = LettersToSeats("DEF,ABC");
 
             var crossIsle = LettersToSeats("BCD,CDE");
-            var crossIsle2 = LettersToSeats("CDE,BCD");
-
-
-            //TODO: come up w secondary seats
+            var crossIsleReversed = LettersToSeats("CDE,BCD");
+            
+            //TODO: come up w secondary seats, e.g. 2x1s or 1x2s
 
             // 60% of the time, return port
             // 40% of the time, return aft
-            var random = new Random().NextDouble();
-            if (random < 0.6)
+
+            if (random.NextDouble() < 0.6)
             {
                 return [ABCDEF, crossIsle];  // Port
             }
             else
             {
-                return [DEFABC, crossIsle2];  // Starboard
+                return [DEFABC, crossIsleReversed];  // Starboard
             }
         }
 
-        private   List<List<List<int>>> PreferredSeats4()
+        private List<List<List<int>>> PreferredSeats4()
         {
             var ABCDBCDECDEF = LettersToSeats("ABCD,BCDE,CDEF");
-            var BCDECDCEDEF = LettersToSeats("BCDE,CDCE,DEF");
+            var BCDECDCEDEF = LettersToSeats("BCDE,CDCE,CDEF");
 
             var ABGHBCHICDJKDEKL = LettersToSeats("ABGH,BCHI,DEJK,EFKL");
             var BCGHCDHIDEKJDEKL = LettersToSeats("BCGH,CDHI,DEKJ,DEKL");
 
             // 60% of the time, return port
             // 40% of the time, return aft
-            var random = new Random().NextDouble();
-            if (random < 0.6)
+
+            if (random.NextDouble() < 0.6)
             {
                 return [ABCDBCDECDEF, ABGHBCHICDJKDEKL];  // Port
             }
@@ -319,7 +367,7 @@ namespace BoardingSimulationV3.Calculations
             }
         }
 
-        private   List<List<List<int>>> PreferredSeats5()
+        private List<List<List<int>>> PreferredSeats5()
         {
             var ABCDE_BCDEF = LettersToSeats("ABCDE,BCDEF");
             var BCDEF_ABCDE = LettersToSeats("BCDEF,ABCDE");
@@ -329,8 +377,8 @@ namespace BoardingSimulationV3.Calculations
 
             // 60% of the time, return port
             // 40% of the time, return aft
-            var random = new Random().NextDouble();
-            if (random < 0.6)
+
+            if (random.NextDouble() < 0.6)
             {
                 return [ABCDE_BCDEF, AllOtherCombos];  // Port
             }
@@ -340,7 +388,7 @@ namespace BoardingSimulationV3.Calculations
             }
         }
 
-        private   List<List<List<int>>> PreferredSeats6()
+        private List<List<List<int>>> PreferredSeats6()
         {
             var ABCDE_BCDEF = LettersToSeats("ABCDEF,GHIJKL");
             var BCDEF_ABCDE = LettersToSeats("GHIJKL,ABCDEF");
@@ -350,8 +398,8 @@ namespace BoardingSimulationV3.Calculations
 
             // 60% of the time, return port
             // 40% of the time, return aft
-            var random = new Random().NextDouble();
-            if (random < 0.6)
+
+            if (random.NextDouble() < 0.6)
             {
                 return [ABCDE_BCDEF, AllOtherCombos];  // Port
             }
@@ -362,8 +410,8 @@ namespace BoardingSimulationV3.Calculations
         }
 
 
-        private   Dictionary<string, List<List<int>>> lettersToSeatsDictionary = new();
-        public   List<List<int>> LettersToSeats(string letters)
+        private Dictionary<string, List<List<int>>> lettersToSeatsDictionary = new();
+        public List<List<int>> LettersToSeats(string letters)
         {
             if (lettersToSeatsDictionary.ContainsKey(letters))
                 return lettersToSeatsDictionary[letters];

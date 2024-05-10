@@ -1,0 +1,7 @@
+﻿compress lane at gate when complete
+
+order family luggate holders by outside lanes
+
+start on AF 1st
+
+don't let minors in emergency exit rows

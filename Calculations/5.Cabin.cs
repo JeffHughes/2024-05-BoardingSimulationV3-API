@@ -7,20 +7,22 @@ namespace BoardingSimulationV3.Calculations
     internal partial class calculations
     {
         List<PathLimitingNode> allNodes = new List<PathLimitingNode>();
-        public List<AnimationFrame> frames = new List<AnimationFrame>();
-        List<int> PassengerIDsToSeat = new List<int>();
-        string Message = "";
+
         int currentBoardingGroup = 1;
 
         private List<Family> MoveToCabin(List<Family> familiesWithBoardingGroups, Config config)
         {
-            seats = new bool[(config.PassengerRows + 1) * config.SeatsPerPassengerRow];
+            seats = new bool[config.PassengerRows * config.SeatsPerPassengerRow]; 
 
             setupNodes(config);
             moveFamiliesToTheirGateLane(familiesWithBoardingGroups, 1);
+            duration = 0;
             saveFrame();
+            // timer doesn't start until the first passenger moves to walkway
             moveFamiliesToTheirGateLane(familiesWithBoardingGroups, 2);
+            duration = 0;
             saveFrame();
+            duration = 1;
 
             var maxFramesToProcess = 60 * 30; // 30 minutes of boarding
             var boarding = true;
@@ -30,17 +32,17 @@ namespace BoardingSimulationV3.Calculations
 
                 allNodes.ForEach(moveFromNode =>
                 {
-                    var moveToNode = allNodes.Find(x => x.NodeID == moveFromNode.NextNodeID);
-
-                    if (  moveToNode?.FamilyID == 0 && moveFromNode.FamilyID != 0)
+                    if (moveFromNode.FamilyID != 0)
                     {
                         var family = familiesWithBoardingGroups.Find(x => x.FamilyID == moveFromNode.FamilyID);
                         if (family.BoardingGroup <= currentBoardingGroup)
                         {
-                            //if (atOverheadBin(family, moveToNode))
-                            //    stowBagsAndSitDown(family, moveToNode, config);
-                            //else
-                            moveToNextNodeInPath(moveFromNode, moveToNode);
+                            var moveToNode = allNodes.Find(x => x.NodeID == moveFromNode.NextNodeID);
+
+                            if (atOverheadBin(family, moveFromNode))
+                                stowBagsAndSitDown(family, moveFromNode, config);
+                            else
+                                moveToNextNodeInPath(moveFromNode, moveToNode);
                         }
                     }
                 });
@@ -62,7 +64,7 @@ namespace BoardingSimulationV3.Calculations
                 // setup countdown for stowing bags
                 // let everyone but luggage handlers sit down 
                 PassengerIDsToSeat.AddRange(nonLuggageHandlerIDs);
-                findSeatsFor(family, luggageHandlerIDs, config);
+                findSeatsFor(family, nonLuggageHandlerIDs, config);
 
                 var carryOns = family.FamilyMembers.Count(x => x.HasCarryOn);
                 if (carryOns > 0)
@@ -107,10 +109,12 @@ namespace BoardingSimulationV3.Calculations
         private void moveToNextNodeInPath(PathLimitingNode moveFromNode, PathLimitingNode moveToNode)
         {
             // TODO: if not blocked by passenger trying to sit down
-            //if (backwardsMovingPassengerNodeBlocks.Contains(moveToNode.NodeID)) return;
-
-            moveToNode.FamilyID = moveFromNode.FamilyID;
-            moveFromNode.FamilyID = 0;
+            //if (backwardsMovingPassengerNodeBlocks.Contains(node.NodeID)) return;
+            if (moveToNode?.FamilyID == 0)
+            {
+                moveToNode.FamilyID = moveFromNode.FamilyID;
+                moveFromNode.FamilyID = 0;
+            }
         }
 
         private bool atOverheadBin(Family family, PathLimitingNode node)
@@ -130,7 +134,7 @@ namespace BoardingSimulationV3.Calculations
                 currentBoardingGroup++;
                 Console.WriteLine("Now boarding group " + currentBoardingGroup);
 
-                if (currentBoardingGroup > 1) // 1 and 2 are already in their lanes
+                if (currentBoardingGroup > 1 && currentBoardingGroup + 1 <= maxBoardingGroup) // 1 and 2 are already in their lanes
                     moveFamiliesToTheirGateLane(familiesWithBoardingGroups, currentBoardingGroup + 1);
             }
         }
@@ -158,7 +162,7 @@ namespace BoardingSimulationV3.Calculations
         {
             var lane = getLaneForBoardingGroup(boardingGroup);
 
-            Message = "Passengers in Boarding group " + boardingGroup + " please line up on your number in the " + (lane == 1 ? "left" : "right") + " lane ";
+            Message = "Passengers in Boarding group " + (char)(boardingGroup + 65) + " please line up on your number in the " + (lane == 1 ? "left" : "right") + " lane ";
 
             var familiesInBoardingGroup = familiesWithBoardingGroups.FindAll(f => f.BoardingGroup == boardingGroup);
             foreach (var family in familiesInBoardingGroup)
@@ -166,6 +170,12 @@ namespace BoardingSimulationV3.Calculations
                 var node = getNodeByGateLaneBoardingOrder(family.BoardingOrder, lane);
                 node.FamilyID = family.FamilyID;
             }
+        }
+
+        char convertIntToString(int i)
+        {
+            // use ascii char 65 to 90
+            return (char)(i + 65);
         }
 
         int getLaneForBoardingGroup(int boardingGroup = 1)
@@ -178,36 +188,7 @@ namespace BoardingSimulationV3.Calculations
             return allNodes.Find(x => x.PathLocationType == PathLocationType.GateLane && x.WalkwayBoardingOrderOrBinNumber == binNumber && x.LaneNumber == lane)!;
         }
 
-        private int duration = 1;
-        private void saveFrame()
-        {
-            Dictionary<int, string> FamilyLocationMovements = new();
-            foreach (var node in allNodes)
-            {
-                if (node.FamilyID == 0) continue;
 
-                // get prev frame, if family nodeID is different, add to FamilyLocationMovements
-                if (HasMoved(node.FamilyID, node.ID))
-                    FamilyLocationMovements.Add(node.FamilyID, node.ID);
-            }
-
-            if (FamilyLocationMovements.Count > 0)
-            {
-                frames.Add(new AnimationFrame
-                {
-                    FrameNumber = frames.Count + 1,
-                    FamilyLocationMovements = FamilyLocationMovements,
-                    Message = Message,
-                    CurrentBoardingGroup = currentBoardingGroup,
-                    DurationSeconds = duration,
-                    PassengerIDsToSeat = PassengerIDsToSeat,
-                });
-                duration = 1;
-                PassengerIDsToSeat = new List<int>();
-                Message = "";
-            }
-            else duration++;
-        }
 
 
         private bool HasMoved(int familyID, string ID)

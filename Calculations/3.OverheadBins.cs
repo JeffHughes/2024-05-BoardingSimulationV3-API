@@ -11,24 +11,35 @@ namespace BoardingSimulationV3.Calculations
             var totalLuggageSpots = config.ContiguousOverheadBins * 2 * config.CarryOnLuggageSlotsPerOverheadBin;
 
             var filledSlotsByBin = new int[totalLuggageSpots + 1]; // 1-based index, we're ignoring 0 for simplicity below
-            var binAssignments = new Dictionary<int, List<int>>();
+            var binAssignments = new Dictionary<int, int>();
 
-            var familiesSortedBiggestToSmallest = families.OrderByDescending(f => f.FamilyMembers.Count).ToList();
-             
+            var familiesSortedBiggestToSmallest = families
+                .OrderByDescending(f => f.FamilyMembers.Any(m => m.Age > 0 && m.Age < 6))
+                .ThenByDescending(f => f.FamilyMembers.Count)
+                .ToList();
+
+            // log to console family size and if they have small children
+            familiesSortedBiggestToSmallest.ForEach(f => Console.WriteLine($"Family {f.FamilyID} has {f.FamilyMembers.Count} members and {(f.FamilyMembers.Any(m => m.Age > 0 && m.Age < 6) ? "small children" : "no small children")}"));
+
             foreach (var family in familiesSortedBiggestToSmallest)
             {
                 int attempts = 0;
                 int currentBin = config.ContiguousOverheadBins;
                 // if family has small children,  
                 var familyHasSmallChildren = family.FamilyMembers.Any(m => m.Age > 0 && m.Age < 6);
+
                 var familyMembersWithCarryOns = family.FamilyMembers.Where(m => m.HasCarryOn).ToList();
+
+                var moveBackToFront = familyHasSmallChildren 
+                || (familyMembersWithCarryOns.Count >= 1 && family.FamilyMembers.Count <= 2);
+                if (moveBackToFront) currentBin = 1;
 
                 while (true)
                 {
                     if (family.OverheadBin == -1) break;
 
                     if (currentBin < 1) currentBin = config.ContiguousOverheadBins;
-                    if (familyHasSmallChildren) currentBin = 1;
+                    if (currentBin > config.ContiguousOverheadBins) currentBin = 1;
 
                     var availableSlotsInCurrentBin = config.CarryOnLuggageSlotsPerOverheadBin * 2 - filledSlotsByBin[currentBin];
 
@@ -37,25 +48,66 @@ namespace BoardingSimulationV3.Calculations
                         family.OverheadBin = currentBin;
                         family.LowestOverheadBinSlotInFamily = filledSlotsByBin[currentBin] + 1;
 
-                        binAssignments.Add(family.FamilyID, new List<int> { currentBin });
+                        binAssignments.Add(family.FamilyID, currentBin);
                         foreach (var member in familyMembersWithCarryOns)
                             member.OverheadBinSlot = ++filledSlotsByBin[currentBin];
 
                         break;
                     }
 
-                    if (familyHasSmallChildren) currentBin++; else currentBin--;
+                    if (moveBackToFront) currentBin++; else currentBin--;
                     attempts++;
                     if (attempts >= config.ContiguousOverheadBins) // Prevent infinite loop  
                         break;
                     // TODO:  handle the case where no bins have space 
                 }
-            } 
+            }
+
+            // Experimental 
+            // MoveAFewGroupsBackToReduceTotalBoardingGroupCount(config, familiesSortedBiggestToSmallest, filledSlotsByBin, binAssignments);
 
             return familiesSortedBiggestToSmallest;
         }
-             
-            
+
+        private void MoveAFewGroupsBackToReduceTotalBoardingGroupCount(Config config,
+            List<Family> familiesSortedBiggestToSmallest, int[] filledSlotsByBin, Dictionary<int, int> binAssignments)
+        {
+            // if there are a bunch of families of 1 in bin > 3 AND bin 1 and 2 have space, move them to bin 1 or 2
+            var familiesOf1or2 = familiesSortedBiggestToSmallest.Where(f => f.FamilyMembers.Count <= 2).ToList();
+            var familiesOf1or2InBin3OrHigher = familiesOf1or2.Where(f => f.OverheadBin > 3).ToList();
+
+            familiesOf1or2InBin3OrHigher = familiesOf1or2InBin3OrHigher.OrderBy(x => x.OverheadBin).ToList();
+            // start w the passengers in 3, then 4, then 5, etc.
+
+            foreach (var family in familiesOf1or2InBin3OrHigher)
+            {
+                var familyMembersWithCarryOns = family.FamilyMembers.Where(m => m.HasCarryOn).ToList();
+
+                for (var bin = 1; bin <= 2; bin++)
+                {
+                    var availableSlotsInBin = config.CarryOnLuggageSlotsPerOverheadBin * 2 - filledSlotsByBin[bin];
+                    if (availableSlotsInBin >= familyMembersWithCarryOns.Count)
+                    {
+                        // filledSlotsByBin[family.OverheadBin] -= familyMembersWithCarryOns.Count;
+
+                        family.OverheadBin = bin;
+                        family.LowestOverheadBinSlotInFamily = filledSlotsByBin[bin] + 1;
+                        binAssignments[family.FamilyID] = bin;
+                        foreach (var member in familyMembersWithCarryOns)
+                            member.OverheadBinSlot = ++filledSlotsByBin[bin];
+                        break;
+                    }
+                }
+            }
+
+        }
+
+
+        //&& 
+        //filledSlotsByBin[1] + filledSlotsByBin[2] <
+        //config.CarryOnLuggageSlotsPerOverheadBin* 2
+
+
         private List<Family> DetermineWhoHasCarryOn(List<Family> families)
         {
             int partiesOf1 = 3;
