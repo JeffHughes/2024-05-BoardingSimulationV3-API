@@ -18,6 +18,7 @@
         public List<int> NonLuggageHandlerIDs = new List<int>();
 
         public bool SeatsFound = false;
+        public bool IsSeated = false;
         public bool LuggageHandlersSeated = false;
         public bool NonLuggageHandlersSeated = false;
 

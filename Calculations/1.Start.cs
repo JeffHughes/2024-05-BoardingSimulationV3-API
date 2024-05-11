@@ -8,7 +8,7 @@ namespace BoardingSimulationV3.Calculations
         public Results runWithConfig(Config config)
         {
             try
-            { 
+            {
                 var families = CreateFamilies(config);
                 var familiesWithBins = AssignBins(families, config);
                 var familiesWithBoardingGroups = AssignBoardingGroup(familiesWithBins);
@@ -32,6 +32,7 @@ namespace BoardingSimulationV3.Calculations
 
         public List<AnimationFrame> frames = [];
         List<int> PassengerIDsToSeat = [];
+        List<int> FamiliesAreSeated = [];
         string Message = "";
 
         private decimal time = 0.1m;
@@ -48,7 +49,7 @@ namespace BoardingSimulationV3.Calculations
                     FamilyLocationMovements.Add(node.FamilyID, node.ID);
             }
 
-            if (FamilyLocationMovements.Count > 0)
+            if (FamilyLocationMovements.Count > 0 || PassengerIDsToSeat.Count > 0 || FamiliesAreSeated.Count > 0)
             {
                 FamilyLocationMovements = FamilyLocationMovements
                     .OrderBy(x => x.Value)
@@ -63,16 +64,48 @@ namespace BoardingSimulationV3.Calculations
                     CurrentBoardingGroup = currentBoardingGroup,
                     DurationSeconds = duration,
                     PassengerIDsToSeat = PassengerIDsToSeat,
+                    FamiliesAreSeated = FamiliesAreSeated,
                     TimeSeconds = time,
                 });
                 duration = 1;
                 PassengerIDsToSeat = [];
+                FamiliesAreSeated = [];
                 Message = "";
             }
             else duration++;
         }
 
 
+        private void saveFinalFrame(List<Family> allFamilies)
+        {
+            // find all unseated passengers
+            var familyIDOnNodes = allNodes
+                .Where(x => x.FamilyID != 0)
+                .Select(x => x.FamilyID)
+                .ToList();
 
+            familyIDOnNodes.ForEach(familyID =>
+              {
+                  var family = allFamilies.FirstOrDefault(x => x.FamilyID == familyID);
+                  if (!family.NonLuggageHandlersSeated)
+                      seatLuggageHandlers(family);
+
+                  if (!family.NonLuggageHandlersSeated)
+                      seatNonLuggageHandlers(family);
+              });
+
+            var allFamiliesWUnseated = allFamilies.Where(f => !f.NonLuggageHandlersSeated || !f.LuggageHandlersSeated);
+            foreach (var family in allFamiliesWUnseated)
+            {
+                if (!family.NonLuggageHandlersSeated)
+                    seatLuggageHandlers(family);
+
+                if (!family.NonLuggageHandlersSeated)
+                    seatNonLuggageHandlers(family);
+            }
+
+            if (PassengerIDsToSeat.Count > 0) saveFrame();
+
+        }
     }
 }

@@ -53,7 +53,7 @@ namespace BoardingSimulationV3.Calculations
                 saveFrame();
             }
 
-            saveFrame();
+            saveFinalFrame(familiesWithBoardingGroups);
 
             return familiesWithBoardingGroups;
         }
@@ -64,22 +64,24 @@ namespace BoardingSimulationV3.Calculations
             if (!family.SeatsFound)
             {
                 FindSeats(family, config);
-                SeatNonLuggageHandlers(family);
+                seatNonLuggageHandlers(family);
                 var carryOns = family.FamilyMembers.Count(x => x.HasCarryOn);
-                if (carryOns <= 0) return;
-                // setup countdown for stowing bags
-                var secsPerBagPerHandler =
-                    (int)Math.Ceiling(decimal.Divide(config.secondsPerBagLoad, family.LuggageHandlerIDs.Count));
-                node.BottleNeckCountdown = carryOns * secsPerBagPerHandler;
-            } 
+                if (carryOns > 0)
+                {  // setup countdown for stowing bags
+                    var secsPerBagPerHandler =
+                        (int)Math.Ceiling(decimal.Divide(config.secondsPerBagLoad, family.LuggageHandlerIDs.Count));
+                    node.BottleNeckCountdown = carryOns * secsPerBagPerHandler;
+                }
+            }
             else if (node.BottleNeckCountdown == 0)
             {
-                if (!family.LuggageHandlersSeated)
-                    seatLuggageHandlers(family);
+                seatLuggageHandlers(family);
                 node.FamilyID = 0;
             }
             else
+            {
                 node.BottleNeckCountdown--;
+            }
         }
 
         private void FindSeats(Family family, Config config)
@@ -89,11 +91,22 @@ namespace BoardingSimulationV3.Calculations
             family.SeatsFound = true;
         }
 
-        void SeatNonLuggageHandlers(Family family)
+        void seatNonLuggageHandlers(Family family)
         {
             if (family.NonLuggageHandlersSeated) return;
             seatPassengers(family.NonLuggageHandlerIDs);
             family.NonLuggageHandlersSeated = true;
+
+            checkIfAllMembersOfFamilyAreSeated(  family);
+        }
+
+        private void checkIfAllMembersOfFamilyAreSeated(Family family)
+        { 
+            if (family.IsSeated) return;
+            if (family is {NonLuggageHandlersSeated: true, LuggageHandlersSeated: true}){
+                family.IsSeated = true; 
+                FamiliesAreSeated.Add(family.FamilyID);
+            }
         }
 
         void seatLuggageHandlers(Family family)
@@ -101,6 +114,8 @@ namespace BoardingSimulationV3.Calculations
             if (family.LuggageHandlersSeated) return;
             seatPassengers(family.LuggageHandlerIDs);
             family.LuggageHandlersSeated = true;
+
+            checkIfAllMembersOfFamilyAreSeated(family);
         }
 
         List<int> _previouslySeated = []; // for debug purposes only 
@@ -125,7 +140,7 @@ namespace BoardingSimulationV3.Calculations
         {
             // TODO: if not blocked by passenger trying to sit down
             //if (backwardsMovingPassengerNodeBlocks.Contains(node.NodeID)) return;
-            if (moveToNode?.FamilyID == 0)
+            if (moveToNode?.FamilyID == 0 && moveToNode.BottleNeckCountdown == 0)
             {
                 moveToNode.FamilyID = moveFromNode.FamilyID;
                 moveFromNode.FamilyID = 0;
@@ -135,7 +150,7 @@ namespace BoardingSimulationV3.Calculations
         private bool atOverheadBin(Family family, PathLimitingNode node)
         {
             if (node.PathLocationType != PathLocationType.Cabin) return false;
-            if (family.OverheadBin < 0) return true;
+            if (family.OverheadBin <= 0) return true;
             var atOverheadBinBool = node.WalkwayBoardingOrderOrBinNumber == family.OverheadBin;
             return atOverheadBinBool;
         }

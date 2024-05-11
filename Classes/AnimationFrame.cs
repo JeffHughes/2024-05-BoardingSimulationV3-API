@@ -15,6 +15,8 @@
 
         public Dictionary<int, string> FamilyLocationMovements { get; set; } = new();
 
-        public List<int> PassengerIDsToSeat { get; set; } = new List<int>(); 
+        public List<int> PassengerIDsToSeat { get; set; } = [];
+
+        public List<int> FamiliesAreSeated { get; set; } = [];
     }
 }
