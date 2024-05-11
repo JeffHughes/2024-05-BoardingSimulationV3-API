@@ -22,10 +22,10 @@ namespace BoardingSimulationV3.Calculations
             {
                 for (var i = 0; i < distribution.FrequencyOfThisMaxPassengerCount; i++)
                 {
-                    var passengers = new List<FamilyPassenger>();
+                    var passengers = new List<FamilyMemberPassenger>();
                     for (var j = 0; j < distribution.PassengerCount; j++)
                     {
-                        var passenger = new FamilyPassenger
+                        var passenger = new FamilyMemberPassenger
                         {
                             // Age = ages[passengerIDs - 1],
                             PassengerID = passengerIDs++,
@@ -38,6 +38,7 @@ namespace BoardingSimulationV3.Calculations
                         FamilyID = familyIDs++,
                         FamilyMembers = passengers,
                     };
+                    family = addLuggageHandling(family);
                     families.Add(family);
                 }
             }
@@ -46,7 +47,48 @@ namespace BoardingSimulationV3.Calculations
             // add elderly, disabled, and other special needs passengers
             // add kids travelling alone (unaccompanied minors)
 
+
             return families;
+        }
+
+        private Family addLuggageHandling(Family family)
+        {
+            //This shouldn't change so, let's memoize it instead of lookups every time
+            family.LuggageHandlerIDs = getPassengerIDsforFamilyLuggageHandlers(family);
+            family.NonLuggageHandlerIDs = getFamilyMemberNonLuggageHandlers(family, family.LuggageHandlerIDs);
+
+            family.FamilyMembers.ForEach(member =>
+            {
+                member.IsLuggageHandler = family.LuggageHandlerIDs.Contains(member.PassengerID);
+            });
+
+            return family;
+        }
+
+        List<int> getPassengerIDsforFamilyLuggageHandlers(Family family)
+        {
+            var luggageHandlers = family.FamilyMembers
+                .Where(x => (x.Age == 0 || x.Age > 13)
+                            && x.HasCarryOn) // HAS to have a carry on, so we don't rope in non-luggage carriers 
+                .Take((int)Math.Ceiling(decimal.Divide(family.FamilyMembers.Count, 2)));
+            // but,TODO: we need to account for families where the luggage handler assigned the luggage to a child
+             
+            var luggangeHandlerIDs = luggageHandlers.Select(x => x.PassengerID).ToList();
+             
+            Console.Write("Luggage Handlers for family " + family.FamilyID + ": "  );
+            Console.Write(luggageHandlers.Any()
+                ? string.Join(", ", luggangeHandlerIDs)
+                : "none");
+            Console.WriteLine();
+
+            return luggangeHandlerIDs;
+        }
+
+        List<int> getFamilyMemberNonLuggageHandlers(Family family, List<int> luggageHandlerIDs)
+        {
+            return family.FamilyMembers
+                .Where(x => !luggageHandlerIDs.Contains(x.PassengerID))
+                .Select(x => x.PassengerID).ToList();
         }
 
         private static void addSmallChildrenToMix(List<Family> families)

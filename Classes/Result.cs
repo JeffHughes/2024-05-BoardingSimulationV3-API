@@ -4,7 +4,7 @@
     {
         public Config Config { get; set; } = new Config();
         public List<Family> Families { get; set; } = new List<Family>();
-        //public List<FamilyPassenger> Passengers { get; set; } = new List<FamilyPassenger>();
+        //public List<FamilyMemberPassenger> Passengers { get; set; } = new List<FamilyMemberPassenger>();
         public List<AnimationFrame> AnimationFrames { get; set; } = new List<AnimationFrame>(); 
     }
 }

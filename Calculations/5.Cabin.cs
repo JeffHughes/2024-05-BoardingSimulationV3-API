@@ -12,7 +12,7 @@ namespace BoardingSimulationV3.Calculations
 
         private List<Family> MoveToCabin(List<Family> familiesWithBoardingGroups, Config config)
         {
-            seats = new bool[config.PassengerRows * config.SeatsPerPassengerRow]; 
+            seats = new bool[(config.PassengerRows) * config.SeatsPerPassengerRow];
 
             setupNodes(config);
             moveFamiliesToTheirGateLane(familiesWithBoardingGroups, 1);
@@ -24,25 +24,28 @@ namespace BoardingSimulationV3.Calculations
             saveFrame();
             duration = 1;
 
-            var maxFramesToProcess = 60 * 30; // 30 minutes of boarding
+            var maxFramesToProcess = 60 * 45; // 45 minutes of boarding
             var boarding = true;
             while (boarding && maxFramesToProcess-- > 0)
             {
-                callNextBoardingGroup(familiesWithBoardingGroups);
+                callNextBoardingGroupWhenGateLaneIsClear(familiesWithBoardingGroups);
 
-                allNodes.ForEach(moveFromNode =>
+                allNodes.ForEach(nodeFamilyIsOn =>
                 {
-                    if (moveFromNode.FamilyID != 0)
+                    if (nodeFamilyIsOn.FamilyID != 0) // no family on the node, nothing to do 
                     {
-                        var family = familiesWithBoardingGroups.Find(x => x.FamilyID == moveFromNode.FamilyID);
-                        if (family.BoardingGroup <= currentBoardingGroup)
+                        var family = familiesWithBoardingGroups.Find(x => x.FamilyID == nodeFamilyIsOn.FamilyID)!;
+                        if (family.BoardingGroup <= currentBoardingGroup)// if it is not the family's turn to board, leave them waiting
                         {
-                            var moveToNode = allNodes.Find(x => x.NodeID == moveFromNode.NextNodeID);
-
-                            if (atOverheadBin(family, moveFromNode))
-                                stowBagsAndSitDown(family, moveFromNode, config);
+                            if (atOverheadBin(family, nodeFamilyIsOn))
+                            {
+                                stowBagsAndSitDown(family, nodeFamilyIsOn, config);
+                            }
                             else
-                                moveToNextNodeInPath(moveFromNode, moveToNode);
+                            {
+                                var nodeFamilyMayGoTo = allNodes.Find(x => x.NodeID == nodeFamilyIsOn.NextNodeID)!;
+                                moveToNextNodeInPath(nodeFamilyIsOn, nodeFamilyMayGoTo);
+                            }
                         }
                     }
                 });
@@ -50,60 +53,72 @@ namespace BoardingSimulationV3.Calculations
                 saveFrame();
             }
 
+            saveFrame();
+
             return familiesWithBoardingGroups;
         }
 
+
         private void stowBagsAndSitDown(Family family, PathLimitingNode node, Config config)
         {
-            //TODO: move this to family generation 
-            var luggageHandlerIDs = getPassengerIDsforFamilyLuggageHandlers(family);
-            var nonLuggageHandlerIDs = getFamilyMemberNonLuggageHandlers(family, luggageHandlerIDs);
-
-            if (node.BottleNeckCountdown == 0)
+            if (!family.SeatsFound)
             {
-                // setup countdown for stowing bags
-                // let everyone but luggage handlers sit down 
-                PassengerIDsToSeat.AddRange(nonLuggageHandlerIDs);
-                findSeatsFor(family, nonLuggageHandlerIDs, config);
-
+                FindSeats(family, config);
+                SeatNonLuggageHandlers(family);
                 var carryOns = family.FamilyMembers.Count(x => x.HasCarryOn);
-                if (carryOns > 0)
-                {
-                    var secsPerBagPerHandler =
-                        (int)Math.Ceiling(decimal.Divide(config.secondsPerBagLoad, luggageHandlerIDs.Count));
-                    node.BottleNeckCountdown = carryOns * secsPerBagPerHandler;
-                }
-                else
-                {
-                    node.FamilyID = 0;
-                }
+                if (carryOns <= 0) return;
+                // setup countdown for stowing bags
+                var secsPerBagPerHandler =
+                    (int)Math.Ceiling(decimal.Divide(config.secondsPerBagLoad, family.LuggageHandlerIDs.Count));
+                node.BottleNeckCountdown = carryOns * secsPerBagPerHandler;
+            } 
+            else if (node.BottleNeckCountdown == 0)
+            {
+                if (!family.LuggageHandlersSeated)
+                    seatLuggageHandlers(family);
+                node.FamilyID = 0;
             }
             else
-            {
-                if (node.BottleNeckCountdown == 1)
-                {
-                    // let luggage handlers sit down
-                    PassengerIDsToSeat.AddRange(luggageHandlerIDs);
-                    node.FamilyID = 0;
-                }
-
                 node.BottleNeckCountdown--;
-            }
         }
 
-        List<int> getPassengerIDsforFamilyLuggageHandlers(Family family)
+        private void FindSeats(Family family, Config config)
         {
-            return family.FamilyMembers
-                .Where(x => (x.Age == 0 || x.Age > 10) && x.HasCarryOn)
-                .Take((int)Math.Ceiling(decimal.Divide(family.FamilyMembers.Count, 3)))
-                .Select(x => x.PassengerID).ToList();
+            if (family.SeatsFound) return;
+            findSeatsFor(family, config);
+            family.SeatsFound = true;
         }
 
-        List<int> getFamilyMemberNonLuggageHandlers(Family family, List<int> luggageHandlerIDs)
+        void SeatNonLuggageHandlers(Family family)
         {
-            return family.FamilyMembers
-                .Where(x => !luggageHandlerIDs.Contains(x.PassengerID)).Select(x => x.PassengerID).ToList();
+            if (family.NonLuggageHandlersSeated) return;
+            seatPassengers(family.NonLuggageHandlerIDs);
+            family.NonLuggageHandlersSeated = true;
         }
+
+        void seatLuggageHandlers(Family family)
+        {
+            if (family.LuggageHandlersSeated) return;
+            seatPassengers(family.LuggageHandlerIDs);
+            family.LuggageHandlersSeated = true;
+        }
+
+        List<int> _previouslySeated = []; // for debug purposes only 
+        private void seatPassengers(List<int> passengerIDs)
+        {
+            foreach (var passengerID in passengerIDs)
+                if (PassengerIDsToSeat.Contains(passengerID))
+                    Console.WriteLine(passengerID + "already in passengers to seat ");
+                else if (_previouslySeated.Contains(passengerID))
+                    Console.WriteLine("reseating " + passengerID + " debug");
+                else
+                {
+                    _previouslySeated.Add(passengerID);
+                    PassengerIDsToSeat.Add(passengerID);
+                }
+        }
+
+
 
 
         private void moveToNextNodeInPath(PathLimitingNode moveFromNode, PathLimitingNode moveToNode)
@@ -125,7 +140,7 @@ namespace BoardingSimulationV3.Calculations
             return atOverheadBinBool;
         }
 
-        private void callNextBoardingGroup(List<Family> familiesWithBoardingGroups)
+        private void callNextBoardingGroupWhenGateLaneIsClear(List<Family> familiesWithBoardingGroups)
         {
             var maxBoardingGroup = familiesWithBoardingGroups.Max(x => x.BoardingGroup);
             var currentBoardingGroupClearOfGateLane = laneIsEmpty(getLaneForBoardingGroup(currentBoardingGroup));

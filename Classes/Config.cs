@@ -14,7 +14,7 @@
 
         public int WalkwayDistance { get; set; } = 15;
 
-        public int secondsPerBagLoad { get; set; } = 4;
+        public int secondsPerBagLoad { get; set; } = 4; //TODO: return to 4 seconds
 
         public List<int> emergencyExitRows = new List<int>() { 13 };
 

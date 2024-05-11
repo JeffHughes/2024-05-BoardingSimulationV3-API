@@ -6,12 +6,12 @@ namespace BoardingSimulationV3.Calculations
     {
         List<Family> AssignBoardingGroup(List<Family> families)
         {
-            var occupiedBoardingGroupBins = new Dictionary<int, int>();
+            var boardingGroupHasFamilyOnBoardingOrder = new Dictionary<int, int>();
 
-            foreach (var family in families.Where(p => p.BoardingGroup != 0))
+            foreach (var family in families.Where(p => p.BoardingGroup != 0)) //if we set you to -1 because no luggage, move to BG 1 in order
             {
-                occupiedBoardingGroupBins.TryAdd(family.BoardingOrder, 0);
-                family.BoardingGroup = ++occupiedBoardingGroupBins[family.BoardingOrder];
+                boardingGroupHasFamilyOnBoardingOrder.TryAdd(family.BoardingOrder, 0);
+                family.BoardingGroup = ++boardingGroupHasFamilyOnBoardingOrder[family.BoardingOrder];
             }
 
             foreach (var family in families
@@ -20,25 +20,31 @@ namespace BoardingSimulationV3.Calculations
                          .ThenBy(f => f.LowestOverheadBinSlotInFamily)
                     )
             {
-                occupiedBoardingGroupBins.TryAdd(family.OverheadBin, 0);
-                family.BoardingGroup = ++occupiedBoardingGroupBins[family.OverheadBin];
+                boardingGroupHasFamilyOnBoardingOrder.TryAdd(family.OverheadBin, 0);
+                family.BoardingGroup = ++boardingGroupHasFamilyOnBoardingOrder[family.OverheadBin];
                 family.BoardingOrder = family.OverheadBin;
             }
 
             // TODO: this method is 2am janky  
             // families = CompressEmptyBoardingGroups(families);
 
-            return families
+            var orderedFamilies = families
                     .OrderBy(f => f.BoardingGroup)
                     .ThenBy(f => f.BoardingOrder)
                     .ToList();
+
+            // console.write line family id, boarding group, boarding order
+            orderedFamilies.ForEach(f => Console.WriteLine($"Family {f.FamilyID} has boarding group {f.BoardingGroup} and boarding order {f.BoardingOrder}"));
+
+            return orderedFamilies;
         }
 
         private static List<Family> CompressEmptyBoardingGroups(List<Family> families)
         {
             // starting with the highest boarding group,
-            // if the number of passengers in the the whole boarding group is less than 6,
+            // if the number of passengers in the whole boarding group is less than 6,
             // then we can move the whole boarding group to the prev boarding group
+            // make new temp families
 
             // Sorting families from the biggest to the smallest group and getting distinct, sorted boarding groups
             var boardingGroups = families

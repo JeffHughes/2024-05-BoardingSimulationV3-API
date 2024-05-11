@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace BoardingSimulationV3.Classes
 {
-    internal class FamilyPassenger
+    internal class FamilyMemberPassenger
     {
         public int PassengerID { get; set; } = 0;
 
@@ -19,8 +19,14 @@ namespace BoardingSimulationV3.Classes
         public bool HasCarryOn { get; set; } = true;
 
         public int Age { get; set; }
+        public bool IsLuggageHandler { get; set; } = false;
 
-        public int BackTrack { get; set; }
+        public bool IsMinor => Age is > 0 and < 18;
+        public bool IsSmallChild => Age is > 0 and < 7;
+
+        public int BackTracks { get; set; }
+
+
     }
 
     public class ConditionalBoolPropertyConverterFactory : JsonConverterFactory

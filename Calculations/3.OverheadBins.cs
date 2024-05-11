@@ -8,9 +8,7 @@ namespace BoardingSimulationV3.Calculations
         {
             families = DetermineWhoHasCarryOn(families);
 
-            var totalLuggageSpots = config.ContiguousOverheadBins * 2 * config.CarryOnLuggageSlotsPerOverheadBin;
-
-            var filledSlotsByBin = new int[totalLuggageSpots + 1]; // 1-based index, we're ignoring 0 for simplicity below
+            var filledSlotsByBin = new int[config.ContiguousOverheadBins + 1]; // 1-based index, we're ignoring 0 for simplicity below
             var binAssignments = new Dictionary<int, int>();
 
             var familiesSortedBiggestToSmallest = families
@@ -19,25 +17,26 @@ namespace BoardingSimulationV3.Calculations
                 .ToList();
 
             // log to console family size and if they have small children
-            familiesSortedBiggestToSmallest.ForEach(f => Console.WriteLine($"Family {f.FamilyID} has {f.FamilyMembers.Count} members and {(f.FamilyMembers.Any(m => m.Age > 0 && m.Age < 6) ? "small children" : "no small children")}"));
+            //familiesSortedBiggestToSmallest
+            //    .ForEach(f => Console.WriteLine($"Family {f.FamilyID} has {f.FamilyMembers.Count} members and {(f.FamilyMembers.Any(m => m.Age > 0 && m.Age < 6) ? "small children" : "no small children")}"));
 
             foreach (var family in familiesSortedBiggestToSmallest)
             {
-                int attempts = 0;
-                int currentBin = config.ContiguousOverheadBins;
-                // if family has small children,  
-                var familyHasSmallChildren = family.FamilyMembers.Any(m => m.Age > 0 && m.Age < 6);
+                if (family.OverheadBin == -1) continue;
 
                 var familyMembersWithCarryOns = family.FamilyMembers.Where(m => m.HasCarryOn).ToList();
 
-                var moveBackToFront = familyHasSmallChildren 
-                || (familyMembersWithCarryOns.Count >= 1 && family.FamilyMembers.Count <= 2);
+                var familyHasSmallChildren = family.FamilyMembers.Any(m => m.Age > 0 && m.Age < 6);
+                var moveBackToFront = familyHasSmallChildren // redundant but for sake of clarity, here's why we're moving back to front
+                || (familyMembersWithCarryOns.Count > 4); //todo: ?? maybe we could add a 50% random or ID%2==0
+                                                          // we're taking a few families and spreading them out to reduce the total boarding group count
+
+                int currentBin = config.ContiguousOverheadBins;
                 if (moveBackToFront) currentBin = 1;
 
+                int attempts = 0;
                 while (true)
                 {
-                    if (family.OverheadBin == -1) break;
-
                     if (currentBin < 1) currentBin = config.ContiguousOverheadBins;
                     if (currentBin > config.ContiguousOverheadBins) currentBin = 1;
 
@@ -62,6 +61,11 @@ namespace BoardingSimulationV3.Calculations
                     // TODO:  handle the case where no bins have space 
                 }
             }
+
+            // console log the bin assignments
+            //foreach (var binAssignment in binAssignments)  
+            //    Console.WriteLine($"Family {binAssignment.Key} assigned to bin {binAssignment.Value}");
+      
 
             // Experimental 
             // MoveAFewGroupsBackToReduceTotalBoardingGroupCount(config, familiesSortedBiggestToSmallest, filledSlotsByBin, binAssignments);
@@ -119,7 +123,7 @@ namespace BoardingSimulationV3.Calculations
             if (families.Count < total)
                 throw new Exception("Not enough families to assign overhead bins");
 
-            if (total > 12)
+            if (total > 12) // 12 is the max number of families that can be in the first boarding group TODO: make this a config
                 throw new Exception("too many families for the the first boarding group");
 
             var baglessFamilies = new List<Family>();
@@ -139,11 +143,11 @@ namespace BoardingSimulationV3.Calculations
                 .Take(partiesOfMoreThan2).ToList();
             baglessFamilies.AddRange(familiesWithMoreThan2);
 
-
+            var counter = 1;
             baglessFamilies.ForEach(family =>
             {
                 family.BoardingGroup = 1;
-                family.BoardingOrder = baglessFamilies.IndexOf(family) + 1;
+                family.BoardingOrder = counter++; // baglessFamilies.IndexOf(family) + 1;
                 family.OverheadBin = -1;
                 family.LowestOverheadBinSlotInFamily = -1;
 

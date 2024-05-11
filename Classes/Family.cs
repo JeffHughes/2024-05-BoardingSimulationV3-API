@@ -12,7 +12,14 @@
 
         public int BoardingOrder { get; set; }
 
-        public List<FamilyPassenger> FamilyMembers { get; set; } = new List<FamilyPassenger>();
- 
+        public List<FamilyMemberPassenger> FamilyMembers { get; set; } = new List<FamilyMemberPassenger>();
+
+        public List<int> LuggageHandlerIDs = new List<int>();
+        public List<int> NonLuggageHandlerIDs = new List<int>();
+
+        public bool SeatsFound = false;
+        public bool LuggageHandlersSeated = false;
+        public bool NonLuggageHandlersSeated = false;
+
     }
 }
