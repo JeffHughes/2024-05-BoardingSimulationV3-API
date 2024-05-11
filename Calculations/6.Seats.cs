@@ -119,6 +119,8 @@ namespace BoardingSimulationV3.Calculations
                 Console.Write(", family separated!: ");
                 var smallFamily = new Family { FamilyMembers = [familyMember], FamilyID = family.FamilyID };
                 var smallFamilySeats = findSeatsForFamilyWilmaOrdered(smallFamily, config, 0, 0);
+
+                seats[smallFamilySeats.First().seatInt] = true;
                 foundSeats.AddRange(smallFamilySeats);
             }
 

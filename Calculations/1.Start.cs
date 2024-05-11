@@ -33,6 +33,9 @@ namespace BoardingSimulationV3.Calculations
         public List<AnimationFrame> frames = [];
         List<int> PassengerIDsToSeat = [];
         List<int> FamiliesAreSeated = [];
+        List<string> BottleneckStart = [];
+        List<string> BottleneckEnd = [];
+
         string Message = "";
 
         private decimal time = 0.1m;
@@ -65,11 +68,15 @@ namespace BoardingSimulationV3.Calculations
                     DurationSeconds = duration,
                     PassengerIDsToSeat = PassengerIDsToSeat,
                     FamiliesAreSeated = FamiliesAreSeated,
+                    BottleneckStart = BottleneckStart,
+                    BottleneckEnd = BottleneckEnd,
                     TimeSeconds = time,
                 });
                 duration = 1;
                 PassengerIDsToSeat = [];
                 FamiliesAreSeated = [];
+                BottleneckStart = [];
+                BottleneckEnd = [];
                 Message = "";
             }
             else duration++;

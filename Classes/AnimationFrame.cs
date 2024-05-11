@@ -18,5 +18,7 @@
         public List<int> PassengerIDsToSeat { get; set; } = [];
 
         public List<int> FamiliesAreSeated { get; set; } = [];
+        public List<string> BottleneckStart { get; set; } = [];
+        public List<string> BottleneckEnd { get; set; } = [];
     }
 }

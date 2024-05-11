@@ -119,7 +119,7 @@ namespace BoardingSimulationV3.Calculations
         {
             var distribution = new List<FamilyDistribution>();
             var remainingPassengers = totalPassengers;
-            const int groupMaxPassengerCountFallOffRatio = 3; // Ratio to reduce the number of groups as the FamilySize increases
+            const int groupMaxPassengerCountFallOffRatio = 2; // Ratio to reduce the number of groups as the FamilySize increases
 
             // Start with FamilySize 2 and work upwards
             for (var MaxPassengerCount = 2; MaxPassengerCount <= maxFamilySize && remainingPassengers >= MaxPassengerCount; MaxPassengerCount++)

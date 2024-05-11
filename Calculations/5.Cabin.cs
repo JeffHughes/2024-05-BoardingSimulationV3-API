@@ -71,6 +71,7 @@ namespace BoardingSimulationV3.Calculations
                     var secsPerBagPerHandler =
                         (int)Math.Ceiling(decimal.Divide(config.secondsPerBagLoad, family.LuggageHandlerIDs.Count));
                     node.BottleNeckCountdown = carryOns * secsPerBagPerHandler;
+                    BottleneckStart.Add(node.ID);
                 }
             }
             else if (node.BottleNeckCountdown == 0)
@@ -80,6 +81,8 @@ namespace BoardingSimulationV3.Calculations
             }
             else
             {
+                if (node.BottleNeckCountdown == 1)
+                    BottleneckEnd.Add(node.ID);
                 node.BottleNeckCountdown--;
             }
         }
@@ -97,14 +100,15 @@ namespace BoardingSimulationV3.Calculations
             seatPassengers(family.NonLuggageHandlerIDs);
             family.NonLuggageHandlersSeated = true;
 
-            checkIfAllMembersOfFamilyAreSeated(  family);
+            checkIfAllMembersOfFamilyAreSeated(family);
         }
 
         private void checkIfAllMembersOfFamilyAreSeated(Family family)
-        { 
+        {
             if (family.IsSeated) return;
-            if (family is {NonLuggageHandlersSeated: true, LuggageHandlersSeated: true}){
-                family.IsSeated = true; 
+            if (family is { NonLuggageHandlersSeated: true, LuggageHandlersSeated: true })
+            {
+                family.IsSeated = true;
                 FamiliesAreSeated.Add(family.FamilyID);
             }
         }
