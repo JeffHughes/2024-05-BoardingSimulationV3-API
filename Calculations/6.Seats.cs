@@ -345,9 +345,11 @@ namespace BoardingSimulationV3.Calculations
 
         private List<List<List<int>>> PreferredSeatsPairs()
         {
-            var ABBCDEEF = LettersToSeats("AB,EF,BC,DE");
-            var BCCDEEFA = LettersToSeats("FE,BA,DE,CB");
-
+            var ABEF = LettersToSeats("AB,EF");
+            var BCDE = LettersToSeats("BC,DE");
+     
+            var FEBA = LettersToSeats("FE,BA");
+            var DECB = LettersToSeats("DE,CB");
             //TODO: come up w secondary seatsPerRow
 
             // 60% of the time, return port
@@ -355,7 +357,7 @@ namespace BoardingSimulationV3.Calculations
 
             //if (random.NextDouble() < 0.6)
             //{
-            return [ABBCDEEF, ABBCDEEF];  // Port
+            return [ABEF, BCDE];  // Port
             //}
             //else
             //{
