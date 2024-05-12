@@ -5,3 +5,11 @@ order family luggate holders by outside lanes
 start on AF 1st
 
 don't let minors in emergency exit rows
+
+seats.cs 123, move target row back smoothly
+try to break families up into smaller groups when possible 
+put singles in aft seats first 
+
+
+revisit overhead bin distribution, 6 in back
+
