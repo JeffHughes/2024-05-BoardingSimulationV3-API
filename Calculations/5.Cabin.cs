@@ -51,14 +51,15 @@ namespace BoardingSimulationV3.Calculations
                 });
 
                 saveFrame();
+
+                if (familiesWithBoardingGroups.All(x => x.IsSeated)) boarding = false;
             }
 
             saveFinalFrame(familiesWithBoardingGroups);
 
             return familiesWithBoardingGroups;
         }
-
-
+         
         private void stowBagsAndSitDown(Family family, PathLimitingNode node, Config config)
         {
             if (!family.SeatsFound)
@@ -136,10 +137,7 @@ namespace BoardingSimulationV3.Calculations
                     PassengerIDsToSeat.Add(passengerID);
                 }
         }
-
-
-
-
+         
         private void moveToNextNodeInPath(PathLimitingNode moveFromNode, PathLimitingNode moveToNode)
         {
             // TODO: if not blocked by passenger trying to sit down
@@ -221,10 +219,7 @@ namespace BoardingSimulationV3.Calculations
         {
             return allNodes.Find(x => x.PathLocationType == PathLocationType.GateLane && x.WalkwayBoardingOrderOrBinNumber == binNumber && x.LaneNumber == lane)!;
         }
-
-
-
-
+         
         private bool HasMoved(int familyID, string ID)
         {
             // get prev frame, if family nodeID is different, add to FamilyLocationMovements
@@ -302,8 +297,8 @@ namespace BoardingSimulationV3.Calculations
 
             allNodes.Reverse();
 
-            foreach (var node in allNodes)
-                Console.WriteLine(node.NodeID + " " + node.ID + " next: " + node.NextNodeID);
+            //foreach (var node in allNodes)
+            //    Console.WriteLine(node.NodeID + " " + node.ID + " next: " + node.NextNodeID);
         }
     }
 }

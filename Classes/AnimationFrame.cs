@@ -11,7 +11,7 @@
         // public string Description { get; set; } = "";
         public string Message { get; set; } = "";
 
-        public int CurrentBoardingGroup { get; set; } = 1;
+        public int CurrentlyBoardingGroup { get; set; } = 1;
 
         public Dictionary<int, string> FamilyLocationMovements { get; set; } = new();
 

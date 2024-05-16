@@ -114,7 +114,7 @@ namespace BoardingSimulationV3.Calculations
 
         private List<Family> DetermineWhoHasCarryOn(List<Family> families)
         {
-            int partiesOf1 = 3;
+            int partiesOf1 = 5;
             int partiesOf2 = 2;
             int partiesOfMoreThan2 = 5;
 

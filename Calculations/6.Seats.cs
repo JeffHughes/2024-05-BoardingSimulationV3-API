@@ -13,15 +13,12 @@ namespace BoardingSimulationV3.Calculations
         private void findSeatsFor(Family family, Config config)
         {
             var targetRow = getTargetRowFromOverheadBin(family.OverheadBin, config);
-            var minRow = targetRow <= 0 ? 0 : getMinimumUnblockedRow(family.OverheadBin);
+            var minRow = targetRow <= 0 ? 0 : getMinimumUnblockedRow(family.OverheadBin);// overhead bin is starting point
 
             var familySeats = findSeatsForFamilyWilmaOrdered(family, config, targetRow, minRow);
 
             // sort FamilyMembers by those in immediateSeatingPassengerIDs first, so they get the outside seatsPerRow
             family.FamilyMembers = family.FamilyMembers.OrderBy(m => family.NonLuggageHandlerIDs.Contains(m.PassengerID) ? 0 : 1).ToList();
-
-            // console  write out the IDs of the luggage handlers
-            Console.WriteLine("All Family Members: " + string.Join(", ", family.FamilyMembers.Select(m => m.PassengerID)));
 
             for (int i = 0; i < familySeats.Count; i++)
             {
@@ -29,6 +26,12 @@ namespace BoardingSimulationV3.Calculations
 
                 family.FamilyMembers[i].Row = familySeats[i].rowInt;
                 family.FamilyMembers[i].SeatLetter = familySeats[i].seatLetter.ToString();
+
+                if (targetRow > familySeats[i].rowInt)
+                {
+                    Console.Write(" BACKTRACK! " + (familySeats[i].rowInt - targetRow) + ", ");
+                    family.FamilyMembers[i].BackTracks = familySeats[i].rowInt - targetRow;
+                }
             }
 
             family.SeatsFound = true;
@@ -38,18 +41,16 @@ namespace BoardingSimulationV3.Calculations
         {
             Console.Write($"Family {family.FamilyID} has {family.FamilyMembers.Count} member(s)" +
                               (family.FamilyMembers.Any(m => m.Age is > 0 and < 6) ? " and has small children" : ""));
-            Console.Write(", bg:" + family.BoardingGroup + "." + family.BoardingOrder + " bin:" + family.OverheadBin + ", row:" + targetRow);
+            Console.Write(", bg:" + convertIntToString(family.BoardingGroup) + family.BoardingOrder + " bin:" + family.OverheadBin + ", row:" + targetRow);
 
             var foundSeats = new List<(int seatInt, int rowInt, char seatLetter)>();
             var seatPrefs = GetSeatPreferences(family.FamilyMembers.Count, config.PassengerRows);
 
             // log all seat preferences to console, break at config.PassengerRows
-            //foreach (var seatSet in seatPrefs.Take(20))
+            //foreach (var seatSet in seatPrefs.Take(10))
             //{
             //    foreach (var seat in seatSet)
-            //    {
             //        Console.Write(seat + " ");
-            //    }
             //    Console.WriteLine();
             //}
 
@@ -62,7 +63,10 @@ namespace BoardingSimulationV3.Calculations
             //    Console.Write(" new minRow: " + minRow);
             //}
 
-            var min = seatAdjustmentForTargetRow(minRow);
+            if (minRow < 1) minRow = 1;
+            if (minRow > config.PassengerRows - 6) minRow = config.PassengerRows - 6;
+
+            var min = seatAdjustmentForTargetRow(minRow) > 0 ? 0 : 1;
             var max = config.PassengerRows * config.SeatsPerPassengerRow;
 
             Console.Write(" min: " + min + ", max: " + max);
@@ -89,12 +93,11 @@ namespace BoardingSimulationV3.Calculations
                 foreach (var seat in seatSet.Select(seatAdjustmentForTargetRow))
                 {
                     var seatAndLetter = convertSeatIntToRowAndSeatLetter(seat, config.SeatsPerPassengerRow);
-                    Console.Write(seatAndLetter.row.ToString() + "" + seatAndLetter.seatLetter + ", ");
+                    Console.Write(seatAndLetter.row + seatAndLetter.seatLetter + ", ");
                     seatsWithLetters.Add((seat, seatAndLetter.row, seatAndLetter.seatLetter));
                 }
 
-                if (targetRow > seatsWithLetters.First().rowInt)
-                    Console.Write(" BACKTRACK! " + (seatsWithLetters.First().rowInt - targetRow) + ", ");
+
 
                 // Sort the array using the custom indices // update if seatsPerRow changes to 8
                 var wilma = new Dictionary<char, int> { { 'A', 0 }, { 'F', 1 }, { 'B', 2 }, { 'E', 3 }, { 'C', 4 }, { 'D', 5 } };
@@ -104,23 +107,37 @@ namespace BoardingSimulationV3.Calculations
                 return seatsSortedWilma.ToList();
             }
 
-            //if (foundSeats.Count == 0) //TODO: we could walk back more slowly than jumping to 0, minRow -2
-            //    return findSeatsForFamilyWilmaOrdered(family, config, targetRow - 2, minRow - 4);
+            if (foundSeats.Count == 0) //TODO: we could walk back more slowly than jumping to 0, minRow -2
+            {
+                if (minRow > 5 && targetRow > 3)
+                    return findSeatsForFamilyWilmaOrdered(family, config, targetRow - 2, minRow - 4);
+            }
 
+
+            if (family.FamilyMembers.Count == 1)
+            {
+                //todo: plan B for singles
+                return foundSeats;
+            }
             // if that still doesn't work, try to find seatsPerRow for smaller groups;
             foreach (var familyMember in family.FamilyMembers)
             {
-                if (familyMember.Age > 0 && familyMember.Age < 6)
+                if (familyMember.Age is > 0 and < 6)
                 {
                     // todo: we need to find a seat for this small child w a parent 
                     // very difficult to get to this state, but it's possible
                 }
 
                 Console.Write(", family separated!: ");
-                var smallFamily = new Family { FamilyMembers = [familyMember], FamilyID = family.FamilyID };
+                var smallFamily = new Family
+                {
+                    FamilyMembers = [familyMember],
+                    FamilyID = family.FamilyID,
+                    BoardingGroup = family.BoardingGroup,
+                    BoardingOrder = family.BoardingOrder
+                };
 
-
-                var smallFamilySeats = findSeatsForFamilyWilmaOrdered(smallFamily, config, 0, 0);
+                var smallFamilySeats = findSeatsForFamilyWilmaOrdered(smallFamily, config, targetRow, minRow);
 
                 seats[smallFamilySeats.First().seatInt] = true;
                 foundSeats.AddRange(smallFamilySeats);
@@ -215,15 +232,15 @@ namespace BoardingSimulationV3.Calculations
         }
 
 
-        public int getMinimumUnblockedRow(int overheadBin)
+        public int getMinimumUnblockedRow(int overheadBinStartingPoint)
         {
-            var minimumUnblockedRow = allNodes
+            var rowsAboveStartingPoint = allNodes
                 .FindAll(x => x.PathLocationType == PathLocationType.Cabin
-                              && x.WalkwayBoardingOrderOrBinNumber > overheadBin)
+                              && x.WalkwayBoardingOrderOrBinNumber > overheadBinStartingPoint)
                 .OrderBy(x => x.WalkwayBoardingOrderOrBinNumber);
 
-            var lastUnblockedRow = overheadBin;
-            foreach (var pathLimitingNode in minimumUnblockedRow)
+            var lastUnblockedRow = overheadBinStartingPoint;
+            foreach (var pathLimitingNode in rowsAboveStartingPoint)
             {
                 if (pathLimitingNode.FamilyID == 0 && pathLimitingNode.WalkwayBoardingOrderOrBinNumber < lastUnblockedRow)
                     lastUnblockedRow = pathLimitingNode.WalkwayBoardingOrderOrBinNumber;
@@ -349,7 +366,7 @@ namespace BoardingSimulationV3.Calculations
         {
             var ABEF = LettersToSeats("AB,EF");
             var BCDE = LettersToSeats("BC,DE");
-     
+
             var FEBA = LettersToSeats("FE,BA");
             var DECB = LettersToSeats("DE,CB");
             //TODO: come up w secondary seatsPerRow

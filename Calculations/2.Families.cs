@@ -73,15 +73,15 @@ namespace BoardingSimulationV3.Calculations
                 .Take((int)Math.Ceiling(decimal.Divide(family.FamilyMembers.Count, 2)));
             // but,TODO: we need to account for families where the luggage handler assigned the luggage to a child
              
-            var luggangeHandlerIDs = luggageHandlers.Select(x => x.PassengerID).ToList();
-             
-            Console.Write("Luggage Handlers for family " + family.FamilyID + ": "  );
-            Console.Write(luggageHandlers.Any()
-                ? string.Join(", ", luggangeHandlerIDs)
-                : "none");
-            Console.WriteLine();
+            var luggageHandlerIDs = luggageHandlers.Select(x => x.PassengerID).ToList();
 
-            return luggangeHandlerIDs;
+            //Console.Write("Luggage Handlers for family " + family.FamilyID + ": "  );
+            //Console.Write(luggageHandlers.Any()
+            //    ? string.Join(", ", luggageHandlerIDs)
+            //    : "none");
+            //Console.WriteLine();
+
+            return luggageHandlerIDs;
         }
 
         List<int> getFamilyMemberNonLuggageHandlers(Family family, List<int> luggageHandlerIDs)
@@ -119,7 +119,7 @@ namespace BoardingSimulationV3.Calculations
         {
             var distribution = new List<FamilyDistribution>();
             var remainingPassengers = totalPassengers;
-            const int groupMaxPassengerCountFallOffRatio = 2; // Ratio to reduce the number of groups as the FamilySize increases
+            const int groupMaxPassengerCountFallOffRatio = 3; // Ratio to reduce the number of groups as the FamilySize increases
 
             // Start with FamilySize 2 and work upwards
             for (var MaxPassengerCount = 2; MaxPassengerCount <= maxFamilySize && remainingPassengers >= MaxPassengerCount; MaxPassengerCount++)

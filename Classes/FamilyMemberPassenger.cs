@@ -22,11 +22,8 @@ namespace BoardingSimulationV3.Classes
         public bool IsLuggageHandler { get; set; } = false;
 
         public bool IsMinor => Age is > 0 and < 18;
-        public bool IsSmallChild => Age is > 0 and < 7;
-
-        public int BackTracks { get; set; }
-
-
+        public bool IsSmallChild => Age is > 0 and < 7; 
+        public int BackTracks { get; set; } 
     }
 
     public class ConditionalBoolPropertyConverterFactory : JsonConverterFactory

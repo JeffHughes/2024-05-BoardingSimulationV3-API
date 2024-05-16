@@ -64,7 +64,7 @@ namespace BoardingSimulationV3.Calculations
                     FrameNumber = frames.Count + 1,
                     FamilyLocationMovements = FamilyLocationMovements,
                     Message = Message,
-                    CurrentBoardingGroup = currentBoardingGroup,
+                    CurrentlyBoardingGroup = currentBoardingGroup,
                     DurationSeconds = duration,
                     PassengerIDsToSeat = PassengerIDsToSeat,
                     FamiliesAreSeated = FamiliesAreSeated,

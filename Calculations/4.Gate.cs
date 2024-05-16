@@ -34,7 +34,7 @@ namespace BoardingSimulationV3.Calculations
                     .ToList();
 
             // console.write line family id, boarding group, boarding order
-            orderedFamilies.ForEach(f => Console.WriteLine($"Family {f.FamilyID} has boarding group {f.BoardingGroup} and boarding order {f.BoardingOrder}"));
+            // orderedFamilies.ForEach(f => Console.WriteLine($"Family {f.FamilyID} has boarding group {f.BoardingGroup} and boarding order {f.BoardingOrder}"));
 
             return orderedFamilies;
         }
